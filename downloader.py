@@ -294,24 +294,11 @@ class FDownloader:
             Number of manga pages
         """
         print(type(page_source))
-        soup = bs(page_source, "html.parser")
-        values = soup.find_all('div', class_="table-cell w-full align-top text-left space-y-2 link:text-blue-700 dark:link:text-white")
-        pages_info = None
-        for val in values:
-            try:
-                pages_info = val.string.split(' ')
-                if pages_info[1] == "pages":
-                    break
-            except (AttributeError, IndexError):
-                continue
-        if not pages_info:
+        match = re.search(r"\"\>(\d+) page(s?)\<\/div\>", page_source)
+        if match:
+            return int(match.group(1))
+        else:
             raise ValueError("Page count are not found.")
-
-        # Work-around for 1-page posts
-        try:
-            return int(pages_info[0])
-        except:
-            return 1
 
     def __get_page_count_in_collection(self, page_source: str) -> int:
         """
