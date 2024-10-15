@@ -115,7 +115,8 @@ class FDownloader:
         """
         options = webdriver.ChromeOptions()
         if headless:
-            options.add_argument("--headless=old")
+            options.add_argument("--headless")
+            options.add_argument("--window-position=-2400,-2400")
         options.add_argument(f"user-agent={USER_AGENT}")
 
         self.browser = webdriver.Chrome(
