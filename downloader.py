@@ -129,6 +129,7 @@ class FDownloader:
             If False: launch usually browser with GUI(for first authenticate)
         """
         options = webdriver.ChromeOptions()
+        options.add_argument("--force-device-scale-factor=1")
         if headless:
             options.add_argument("--headless")
             options.add_argument("--window-position=-2400,-2400")
@@ -218,10 +219,17 @@ class FDownloader:
 
     def set_viewport_size(self, width, height):
         # https://stackoverflow.com/questions/37181403/how-to-set-browser-viewport-size
+        # print(f"img resize {width} {height}")
+        test = self.browser.execute_script("""
+            return [window.outerWidth,  window.innerWidth,
+            window.outerHeight,  window.innerHeight];
+            """)
+        # print(test)
         window_size = self.browser.execute_script("""
-            return [window.outerWidth - document.body.clientWidth + arguments[0],
-            window.outerHeight - document.body.clientHeight + arguments[1]];
+            return [window.outerWidth - window.innerWidth + arguments[0],
+            window.outerHeight - window.innerHeight + arguments[1]];
             """, width, height)
+        # print(window_size)
         self.browser.set_window_size(*window_size)
 
     def load_all(self) -> None:
@@ -278,7 +286,7 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                   
+                        print(f"\nsetting size {width} {height}")
                         if self.viewport:
                             self.set_viewport_size(width, height)
                         else: 
