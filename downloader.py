@@ -215,6 +215,9 @@ class FDownloader:
                 if not url.strip():
                     continue
 
+                # Sanitize url.
+                url = re.sub(r"\/read(\/page\/.+)?", "", url)
+
                 manga_name = url.split("/")[-1]
                 manga_folder = os.sep.join([self.root_manga_dir, manga_name])
                 if not os.path.exists(manga_folder):
