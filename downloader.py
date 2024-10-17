@@ -1,6 +1,7 @@
 import os
 import pickle
 import re
+from PIL import Image
 from shutil import rmtree
 from time import sleep
 from typing import Optional, List
@@ -18,6 +19,7 @@ from tqdm import tqdm
 
 BASE_URL = "https://www.fakku.net"
 LOGIN_URL = f"{BASE_URL}/login/"
+FAIL_THRESHOLD = 1000
 # Initial display settings for headless browser. Any manga in this
 # resolution will be opened correctly and with the best quality.
 MAX_DISPLAY_SETTINGS = [1440, 2560]
@@ -99,6 +101,7 @@ class FDownloader:
         self.urls_file = urls_file
         self.urls = self.__get_urls_list(urls_file, done_file)
         self.done_file = done_file
+        self.fail_file = fail_file
         self.cookies_file = cookies_file
         self.root_manga_dir = root_manga_dir
         self.driver_path = driver_path
@@ -273,7 +276,27 @@ class FDownloader:
                     self.browser.save_screenshot(destination_file)
                 print(">> manga done!")
 
-                # TODO check every file page for size.
+                # Check every file page for size.
+                failed = False
+                for page_num in tqdm(range(1, page_count + 1)):
+                    destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
+                    img = Image.open(destination_file)
+                    if img.width < FAIL_THRESHOLD or img.height < FAIL_THRESHOLD:
+                        failed = True
+                    img.close()
+                if failed: 
+                    print(f"\nError: Found badly downloaded png {url}")
+                    fail_file_obj = open(self.fail_file, "a")
+                    fail_file_obj.write(f"{url}\n")
+                    urls_processed += 1
+                    for page_num in tqdm(range(1, page_count + 1)):
+                        file = os.sep.join([manga_folder, f"{page_num}.png"])
+                        if os.path.exists(file):
+                            os.remove(file)
+                    os.rmdir(manga_folder)
+                    fail_file_obj.close()
+                    continue
+
 
                 done_file_obj.write(f"{url}\n")
                 urls_processed += 1

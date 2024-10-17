@@ -10,6 +10,7 @@ from downloader import (
     WAIT,
     URLS_FILE,
     DONE_FILE,
+    FAIL_FILE,
     COOKIES_FILE,
     ROOT_MANGA_DIR,
     MAX,
@@ -44,6 +45,15 @@ def main():
         help=f".txt file that contains list of urls that have been downloaded. \
             This is used to resume in the event that the process stops midway. \
             By default -- {DONE_FILE}",
+    )
+    argparser.add_argument(
+        "-x",
+        "--fail_file",
+        type=str,
+        default=FAIL_FILE,
+        help=f".txt file that contains list of urls which some pages failed to download. \
+            This means they are suspiciously small in filesize. \
+            By default -- {FAIL_FILE}",
     )
     argparser.add_argument(
         "-c",
@@ -115,6 +125,7 @@ def main():
     loader = FDownloader(
         urls_file=args.file_urls,
         done_file=args.done_file,
+        fail_file=args.fail_file,
         cookies_file=args.cookies_file,
         root_manga_dir=args.output_dir,
         login=args.login,
