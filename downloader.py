@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, JavascriptException
+from selenium.common.exceptions import TimeoutException, JavascriptException, NoSuchElementException
 
 from bs4 import BeautifulSoup as bs
 from tqdm import tqdm
@@ -38,8 +38,7 @@ WAIT = 2
 # Max manga to download in one session (-1 == no limit)
 MAX = None
 # User agent for web browser
-USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36"
-
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
 def program_exit():
     print("Program exit.")
@@ -369,13 +368,26 @@ class FDownloader:
         if not is_reader_page:
             sleep(self.wait)
             elem_xpath = "//link[@rel='icon']"
+            iframe = False
         elif should_add_delay:
             sleep(self.wait * 3)
             elem_xpath = "//div[@data-name='PageView']"
+            iframe = True
         else:
             sleep(self.wait)
             elem_xpath = "//div[@data-name='PageView']"
+            iframe = True
         try:
+            # We need to switch into iframe before looking for canvas.
+            if iframe:
+                try:
+                    self.browser.switch_to.frame(self.browser.find_element_by_tag_name("iframe"))
+                except NoSuchElementException:
+                    print("\nError: Couldn't find iframe. Bugger.")
+                    program_exit()
+            else: 
+                self.browser.switch_to_default_content()
+
             element = EC.presence_of_element_located((By.XPATH, elem_xpath))
             WebDriverWait(self.browser, self.timeout).until(element)
         except TimeoutException:
