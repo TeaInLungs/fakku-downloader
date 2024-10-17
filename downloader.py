@@ -1,6 +1,8 @@
 import os
 import pickle
 import re
+from zipfile import ZipFile, ZIP_STORED
+from PIL import Image
 from shutil import rmtree
 from time import sleep
 from typing import Optional, List
@@ -18,6 +20,8 @@ from tqdm import tqdm
 
 BASE_URL = "https://www.fakku.net"
 LOGIN_URL = f"{BASE_URL}/login/"
+# If image has any dimension lower than threshold, manga is considered failed.
+FAIL_THRESHOLD = 1000
 # Initial display settings for headless browser. Any manga in this
 # resolution will be opened correctly and with the best quality.
 MAX_DISPLAY_SETTINGS = [1440, 2560]
@@ -27,6 +31,8 @@ EXEC_PATH = "chromedriver.exe"
 URLS_FILE = "urls.txt"
 # File with completed urls
 DONE_FILE = "done.txt"
+# File for failed urls
+FAIL_FILE = "fail.txt"
 # File with prepared cookies
 COOKIES_FILE = "cookies.pickle"
 # Root directory for manga downloader
@@ -44,6 +50,10 @@ def program_exit():
     print("Program exit.")
     exit()
 
+def sanitize_url(url: str) -> str:
+    # Sanitize url.
+    url = re.sub(r"\/read(\/page\/.+)?", "", url)
+    return url
 
 class FDownloader:
     """
@@ -57,6 +67,7 @@ class FDownloader:
         self,
         urls_file: str = URLS_FILE,
         done_file: str = DONE_FILE,
+        fail_file: str = FAIL_FILE,
         cookies_file: str = COOKIES_FILE,
         root_manga_dir: str = ROOT_MANGA_DIR,
         driver_path:str = EXEC_PATH,
@@ -66,6 +77,7 @@ class FDownloader:
         login: Optional[str] = None,
         password: Optional[str] = None,
         _max: Optional[int] = MAX,
+        pack: Optional[bool] = False
     ):
         """
         param: urls_file -- string name of .txt file with urls
@@ -92,6 +104,7 @@ class FDownloader:
         self.urls_file = urls_file
         self.urls = self.__get_urls_list(urls_file, done_file)
         self.done_file = done_file
+        self.fail_file = fail_file
         self.cookies_file = cookies_file
         self.root_manga_dir = root_manga_dir
         self.driver_path = driver_path
@@ -102,6 +115,7 @@ class FDownloader:
         self.login = login
         self.password = password
         self.max = _max
+        self.pack = pack
 
     def init_browser(self, headless: Optional[bool] = False) -> None:
         """
@@ -204,6 +218,7 @@ class FDownloader:
         """
         Just main function which opening each page and save it in .png
         """
+
         self.browser.set_window_size(*self.default_display)
         if not os.path.exists(self.root_manga_dir):
             os.mkdir(self.root_manga_dir)
@@ -214,6 +229,9 @@ class FDownloader:
                 # If `url` is an empty string, skip it.
                 if not url.strip():
                     continue
+
+                # Sanitize url.
+                url = sanitize_url(url)
 
                 manga_name = url.split("/")[-1]
                 manga_folder = os.sep.join([self.root_manga_dir, manga_name])
@@ -262,10 +280,46 @@ class FDownloader:
                     )
                     self.browser.save_screenshot(destination_file)
                 print(">> manga done!")
+
+                # Check every file page for size.
+                failed = False
+                for page_num in tqdm(range(1, page_count + 1)):
+                    destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
+                    img = Image.open(destination_file)
+                    if img.width < FAIL_THRESHOLD or img.height < FAIL_THRESHOLD:
+                        failed = True
+                    img.close()
+                if failed: 
+                    print(f"\nError: Found badly downloaded png {url}")
+                    fail_file_obj = open(self.fail_file, "a")
+                    fail_file_obj.write(f"{url}\n")
+                    urls_processed += 1
+                    self.remove_manga_folder(manga_folder, page_count)
+                    fail_file_obj.close()
+                    self.browser.close()
+                    self.init_browser(headless=True)
+                    continue
+
+                if self.pack:
+                    zipname = os.sep.join([self.root_manga_dir , f"{manga_name}.cbz"])
+                    with ZipFile(zipname, "w") as archive:
+                        for page_num in tqdm(range(1, page_count + 1)):
+                            file = os.sep.join([manga_folder, f"{page_num}.png"])
+                            archive.write(file, f"{page_num}.png", None, ZIP_STORED)
+                    if os.path.exists(zipname):
+                        self.remove_manga_folder(manga_folder, page_count)
+
                 done_file_obj.write(f"{url}\n")
                 urls_processed += 1
                 if self.max is not None and urls_processed >= self.max:
                     break
+
+    def remove_manga_folder(self, manga_folder: str, page_count: int):
+        for page_num in tqdm(range(1, page_count + 1)):
+            file = os.sep.join([manga_folder, f"{page_num}.png"])
+            if os.path.exists(file):
+                os.remove(file)
+        os.rmdir(manga_folder)
 
     def load_urls_from_collection(self, collection_url: str) -> None:
         """
@@ -346,6 +400,7 @@ class FDownloader:
         with open(urls_file, "r") as f:
             for line in f:
                 clean_line = line.replace("\n", "")
+                clean_line = sanitize_url(clean_line)
                 if clean_line not in done:
                     urls.append(clean_line)
         return urls

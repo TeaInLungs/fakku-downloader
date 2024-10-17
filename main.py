@@ -10,6 +10,7 @@ from downloader import (
     WAIT,
     URLS_FILE,
     DONE_FILE,
+    FAIL_FILE,
     COOKIES_FILE,
     ROOT_MANGA_DIR,
     MAX,
@@ -44,6 +45,15 @@ def main():
         help=f".txt file that contains list of urls that have been downloaded. \
             This is used to resume in the event that the process stops midway. \
             By default -- {DONE_FILE}",
+    )
+    argparser.add_argument(
+        "-x",
+        "--fail_file",
+        type=str,
+        default=FAIL_FILE,
+        help=f".txt file that contains list of urls which some pages failed to download. \
+            This means they are suspiciously small in filesize. \
+            By default -- {FAIL_FILE}",
     )
     argparser.add_argument(
         "-c",
@@ -95,6 +105,12 @@ def main():
         help=f"Max number of volumes to download at once \
             Set this argument if you become blocked. By default -- No limit",
     )
+    argparser.add_argument(
+        "-k",
+        "--pack",
+        action='store_true',
+        help=f"Flags if manga should be packed into .cbz when finished. Compression algorithm is STORED",
+    )
     args = argparser.parse_args()
 
     file_urls = Path(args.file_urls)
@@ -115,6 +131,7 @@ def main():
     loader = FDownloader(
         urls_file=args.file_urls,
         done_file=args.done_file,
+        fail_file=args.fail_file,
         cookies_file=args.cookies_file,
         root_manga_dir=args.output_dir,
         login=args.login,
@@ -122,6 +139,7 @@ def main():
         timeout=args.timeout,
         wait=args.wait,
         _max=args.max,
+        pack=args.pack
     )
 
     if not Path(args.cookies_file).is_file():
