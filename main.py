@@ -111,6 +111,12 @@ def main():
         action='store_true',
         help=f"Flags if manga should be packed into .cbz when finished. Compression algorithm is STORED",
     )
+    argparser.add_argument(
+        "-v",
+        "--viewport",
+        action='store_true',
+        help=f"Flags if page size should be applied to browser, or rather viewport. Experimental.",
+    )
     args = argparser.parse_args()
 
     file_urls = Path(args.file_urls)
@@ -139,7 +145,8 @@ def main():
         timeout=args.timeout,
         wait=args.wait,
         _max=args.max,
-        pack=args.pack
+        pack=args.pack,
+        viewport=args.viewport
     )
 
     if not Path(args.cookies_file).is_file():

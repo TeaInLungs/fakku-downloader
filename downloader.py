@@ -77,7 +77,8 @@ class FDownloader:
         login: Optional[str] = None,
         password: Optional[str] = None,
         _max: Optional[int] = MAX,
-        pack: Optional[bool] = False
+        pack: Optional[bool] = False,
+        viewport: Optional[bool] = False
     ):
         """
         param: urls_file -- string name of .txt file with urls
@@ -116,6 +117,7 @@ class FDownloader:
         self.password = password
         self.max = _max
         self.pack = pack
+        self.viewport = viewport
 
     def init_browser(self, headless: Optional[bool] = False) -> None:
         """
@@ -127,6 +129,7 @@ class FDownloader:
             If False: launch usually browser with GUI(for first authenticate)
         """
         options = webdriver.ChromeOptions()
+        options.add_argument("--force-device-scale-factor=1")
         if headless:
             options.add_argument("--headless")
             options.add_argument("--window-position=-2400,-2400")
@@ -214,6 +217,21 @@ class FDownloader:
         # Recreating browser in headless mode for next manga downloading
         self.__init_headless_browser()
 
+    def set_viewport_size(self, width, height):
+        # https://stackoverflow.com/questions/37181403/how-to-set-browser-viewport-size
+        # print(f"img resize {width} {height}")
+        test = self.browser.execute_script("""
+            return [window.outerWidth,  window.innerWidth,
+            window.outerHeight,  window.innerHeight];
+            """)
+        # print(test)
+        window_size = self.browser.execute_script("""
+            return [window.outerWidth - window.innerWidth + arguments[0],
+            window.outerHeight - window.innerHeight + arguments[1]];
+            """, width, height)
+        # print(window_size)
+        self.browser.set_window_size(*window_size)
+
     def load_all(self) -> None:
         """
         Just main function which opening each page and save it in .png
@@ -240,7 +258,12 @@ class FDownloader:
 
                 self.browser.get(url)
                 self.waiting_loading_page(is_reader_page=False)
-                page_count = self.__get_page_count(self.browser.page_source)
+                try:
+                    page_count = self.__get_page_count(self.browser.page_source)
+                except ValueError:
+                    self.add_failed(url)
+                    continue
+
                 print(f'Downloading "{manga_name}" manga.')
                 delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
 
@@ -268,7 +291,11 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                        self.browser.set_window_size(width, height)
+                        if self.viewport:
+                            self.set_viewport_size(width, height)
+                        else: 
+                            self.browser.set_window_size(width, height)
+
                     except JavascriptException:
                         print(
                             "\nSome error with JS. Page source are note ready. You can try increase argument -t"
@@ -278,6 +305,7 @@ class FDownloader:
                     self.browser.execute_script(
                         f"document.getElementsByClassName('layer')[{n-1}].remove()"
                     )
+                
                     self.browser.save_screenshot(destination_file)
                 print(">> manga done!")
 
@@ -290,12 +318,9 @@ class FDownloader:
                         failed = True
                     img.close()
                 if failed: 
-                    print(f"\nError: Found badly downloaded png {url}")
-                    fail_file_obj = open(self.fail_file, "a")
-                    fail_file_obj.write(f"{url}\n")
+                    self.add_failed(url)
                     urls_processed += 1
                     self.remove_manga_folder(manga_folder, page_count)
-                    fail_file_obj.close()
                     self.browser.close()
                     self.init_browser(headless=True)
                     continue
@@ -320,6 +345,12 @@ class FDownloader:
             if os.path.exists(file):
                 os.remove(file)
         os.rmdir(manga_folder)
+
+    def add_failed(self, url: str):
+        print(f"\nError: Failing {url}")
+        fail_file_obj = open(self.fail_file, "a")
+        fail_file_obj.write(f"{url}\n")
+        fail_file_obj.close()
 
     def load_urls_from_collection(self, collection_url: str) -> None:
         """

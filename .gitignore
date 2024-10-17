@@ -1,6 +1,6 @@
 __pycache__/
 chromedriver.exe
-manga/*/*.png
+manga/*
 .DS_Store
 cookies.pickle
 done.txt
