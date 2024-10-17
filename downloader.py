@@ -251,11 +251,6 @@ class FDownloader:
                 # Sanitize url.
                 url = sanitize_url(url)
 
-                manga_name = url.split("/")[-1]
-                manga_folder = os.sep.join([self.root_manga_dir, manga_name])
-                if not os.path.exists(manga_folder):
-                    os.mkdir(manga_folder)
-
                 self.browser.get(url)
                 self.waiting_loading_page(is_reader_page=False)
                 try:
@@ -263,6 +258,11 @@ class FDownloader:
                 except ValueError:
                     self.add_failed(url)
                     continue
+
+                manga_name = url.split("/")[-1]
+                manga_folder = os.sep.join([self.root_manga_dir, manga_name])
+                if not os.path.exists(manga_folder):
+                    os.mkdir(manga_folder)
 
                 print(f'Downloading "{manga_name}" manga.')
                 delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
