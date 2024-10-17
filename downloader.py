@@ -317,7 +317,7 @@ class FDownloader:
                     fail_file_obj = open(self.fail_file, "a")
                     fail_file_obj.write(f"{url}\n")
                     urls_processed += 1
-                    # self.remove_manga_folder(manga_folder, page_count)
+                    self.remove_manga_folder(manga_folder, page_count)
                     fail_file_obj.close()
                     self.browser.close()
                     self.init_browser(headless=True)
