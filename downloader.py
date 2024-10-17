@@ -216,13 +216,13 @@ class FDownloader:
         # Recreating browser in headless mode for next manga downloading
         self.__init_headless_browser()
 
-    def set_viewport_size(self, driver, width, height):
+    def set_viewport_size(self, width, height):
         # https://stackoverflow.com/questions/37181403/how-to-set-browser-viewport-size
-        window_size = driver.execute_script("""
-            return [window.outerWidth - window.innerWidth + arguments[0],
-            window.outerHeight - window.innerHeight + arguments[1]];
+        window_size = self.browser.execute_script("""
+            return [window.outerWidth - document.body.clientWidth + arguments[0],
+            window.outerHeight - document.body.clientHeight + arguments[1]];
             """, width, height)
-        driver.set_window_size(*window_size)
+        self.browser.set_window_size(*window_size)
 
     def load_all(self) -> None:
         """
@@ -278,9 +278,9 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                        sleep(2)
+                   
                         if self.viewport:
-                            self.set_viewport_size(self.browser, width, height)
+                            self.set_viewport_size(width, height)
                         else: 
                             self.browser.set_window_size(width, height)
 
@@ -289,10 +289,12 @@ class FDownloader:
                             "\nSome error with JS. Page source are note ready. You can try increase argument -t"
                         )
 
+                    sleep(2)
                     # Delete all UI and save page
                     self.browser.execute_script(
                         f"document.getElementsByClassName('layer')[{n-1}].remove()"
                     )
+                
                     self.browser.save_screenshot(destination_file)
                 print(">> manga done!")
 
