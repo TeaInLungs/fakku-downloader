@@ -276,7 +276,6 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                        print(f"size of page {width}  {height}")
                         self.set_viewport_size(self.browser, width, height)
 
                     except JavascriptException:
