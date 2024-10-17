@@ -105,6 +105,12 @@ def main():
         help=f"Max number of volumes to download at once \
             Set this argument if you become blocked. By default -- No limit",
     )
+    argparser.add_argument(
+        "-k",
+        "--pack",
+        action='store_true',
+        help=f"Flags if manga should be packed into .cbz when finished. Compression algorithm is STORED",
+    )
     args = argparser.parse_args()
 
     file_urls = Path(args.file_urls)
@@ -133,6 +139,7 @@ def main():
         timeout=args.timeout,
         wait=args.wait,
         _max=args.max,
+        pack=args.pack
     )
 
     if not Path(args.cookies_file).is_file():
