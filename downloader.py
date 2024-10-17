@@ -27,6 +27,8 @@ EXEC_PATH = "chromedriver.exe"
 URLS_FILE = "urls.txt"
 # File with completed urls
 DONE_FILE = "done.txt"
+# File for failed urls
+FAIL_FILE = "fail.txt"
 # File with prepared cookies
 COOKIES_FILE = "cookies.pickle"
 # Root directory for manga downloader
@@ -44,6 +46,10 @@ def program_exit():
     print("Program exit.")
     exit()
 
+def sanitize_url(url: str) -> str:
+    # Sanitize url.
+    url = re.sub(r"\/read(\/page\/.+)?", "", url)
+    return url
 
 class FDownloader:
     """
@@ -57,6 +63,7 @@ class FDownloader:
         self,
         urls_file: str = URLS_FILE,
         done_file: str = DONE_FILE,
+        fail_file: str = FAIL_FILE,
         cookies_file: str = COOKIES_FILE,
         root_manga_dir: str = ROOT_MANGA_DIR,
         driver_path:str = EXEC_PATH,
@@ -216,7 +223,7 @@ class FDownloader:
                     continue
 
                 # Sanitize url.
-                url = re.sub(r"\/read(\/page\/.+)?", "", url)
+                url = sanitize_url(url)
 
                 manga_name = url.split("/")[-1]
                 manga_folder = os.sep.join([self.root_manga_dir, manga_name])
@@ -265,6 +272,9 @@ class FDownloader:
                     )
                     self.browser.save_screenshot(destination_file)
                 print(">> manga done!")
+
+                # TODO check every file page for size.
+
                 done_file_obj.write(f"{url}\n")
                 urls_processed += 1
                 if self.max is not None and urls_processed >= self.max:
@@ -349,6 +359,7 @@ class FDownloader:
         with open(urls_file, "r") as f:
             for line in f:
                 clean_line = line.replace("\n", "")
+                clean_line = sanitize_url(clean_line)
                 if clean_line not in done:
                     urls.append(clean_line)
         return urls
