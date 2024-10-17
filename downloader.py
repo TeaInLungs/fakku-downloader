@@ -286,7 +286,6 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                        print(f"\nsetting size {width} {height}")
                         if self.viewport:
                             self.set_viewport_size(width, height)
                         else: 
@@ -297,7 +296,6 @@ class FDownloader:
                             "\nSome error with JS. Page source are note ready. You can try increase argument -t"
                         )
 
-                    sleep(2)
                     # Delete all UI and save page
                     self.browser.execute_script(
                         f"document.getElementsByClassName('layer')[{n-1}].remove()"
