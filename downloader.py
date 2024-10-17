@@ -258,7 +258,12 @@ class FDownloader:
 
                 self.browser.get(url)
                 self.waiting_loading_page(is_reader_page=False)
-                page_count = self.__get_page_count(self.browser.page_source)
+                try:
+                    page_count = self.__get_page_count(self.browser.page_source)
+                except ValueError:
+                    self.add_failed(url)
+                    continue
+
                 print(f'Downloading "{manga_name}" manga.')
                 delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
 
@@ -313,12 +318,9 @@ class FDownloader:
                         failed = True
                     img.close()
                 if failed: 
-                    print(f"\nError: Found badly downloaded png {url}")
-                    fail_file_obj = open(self.fail_file, "a")
-                    fail_file_obj.write(f"{url}\n")
+                    self.add_failed(url)
                     urls_processed += 1
                     self.remove_manga_folder(manga_folder, page_count)
-                    fail_file_obj.close()
                     self.browser.close()
                     self.init_browser(headless=True)
                     continue
@@ -343,6 +345,12 @@ class FDownloader:
             if os.path.exists(file):
                 os.remove(file)
         os.rmdir(manga_folder)
+
+    def add_failed(self, url: str):
+        print(f"\nError: Failing {url}")
+        fail_file_obj = open(self.fail_file, "a")
+        fail_file_obj.write(f"{url}\n")
+        fail_file_obj.close()
 
     def load_urls_from_collection(self, collection_url: str) -> None:
         """
