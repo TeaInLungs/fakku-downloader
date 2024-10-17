@@ -77,7 +77,8 @@ class FDownloader:
         login: Optional[str] = None,
         password: Optional[str] = None,
         _max: Optional[int] = MAX,
-        pack: Optional[bool] = False
+        pack: Optional[bool] = False,
+        viewport: Optional[bool] = False
     ):
         """
         param: urls_file -- string name of .txt file with urls
@@ -116,6 +117,7 @@ class FDownloader:
         self.password = password
         self.max = _max
         self.pack = pack
+        self.viewport = viewport
 
     def init_browser(self, headless: Optional[bool] = False) -> None:
         """
@@ -276,7 +278,11 @@ class FDownloader:
                         height = self.browser.execute_script(
                             f"return document.getElementsByTagName('canvas')[{n-2}].height"
                         )
-                        self.set_viewport_size(self.browser, width, height)
+                        sleep(2)
+                        if self.viewport:
+                            self.set_viewport_size(self.browser, width, height)
+                        else: 
+                            self.browser.set_window_size(width, height)
 
                     except JavascriptException:
                         print(
