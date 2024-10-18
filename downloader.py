@@ -269,9 +269,9 @@ class FDownloader:
             delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
 
         
-            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n}/{total}"
-            ascii=" >>>-" # Bro wtf? Is it that hard to have |==> | ?
-            for page_num in tqdm(range(1, page_count + 1), ascii=False, bar_format=bar_format):
+            bar_format="{desc}: {percentage:3.0f}% |{bar}| {n:3.0f}/{total:3.0f}"
+            ascii=" ="
+            for page_num in tqdm(range(1, page_count + 1), ascii=ascii, bar_format=bar_format):
                 destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
                 if os.path.isfile(destination_file):
                     delay_before_fetching = True  # When skipping files, the reader will load multiple pages and slow down again
