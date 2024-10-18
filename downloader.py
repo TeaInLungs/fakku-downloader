@@ -26,7 +26,7 @@ FAIL_THRESHOLD = 1000
 # resolution will be opened correctly and with the best quality.
 MAX_DISPLAY_SETTINGS = [1440, 2560]
 # Path to headless driver
-EXEC_PATH = "chromedriver.exe"
+EXEC_PATH = "chromedriver"
 # File with manga urls
 URLS_FILE = "urls.txt"
 # File with completed urls
@@ -103,7 +103,6 @@ class FDownloader:
             Password for authentication
         """
         self.urls_file = urls_file
-        self.urls = self.__get_urls_list(urls_file, done_file)
         self.done_file = done_file
         self.fail_file = fail_file
         self.cookies_file = cookies_file
@@ -118,6 +117,7 @@ class FDownloader:
         self.max = _max
         self.pack = pack
         self.viewport = viewport
+        self.urls = self.__get_urls_list()
 
     def init_browser(self, headless: Optional[bool] = False) -> None:
         """
@@ -133,8 +133,9 @@ class FDownloader:
         if headless:
             options.add_argument("--headless")
             options.add_argument("--window-position=-2400,-2400")
+            # Silent output?
+            options.add_argument("--log-level=OFF")
         options.add_argument(f"user-agent={USER_AGENT}")
-
         self.browser = webdriver.Chrome(
             executable_path=self.driver_path,
             chrome_options=options,
@@ -241,110 +242,115 @@ class FDownloader:
         if not os.path.exists(self.root_manga_dir):
             os.mkdir(self.root_manga_dir)
 
-        with open(self.done_file, "a") as done_file_obj:
-            urls_processed = 0
-            for url in self.urls:
-                # If `url` is an empty string, skip it.
-                if not url.strip():
+
+        urls_processed = 0
+        for url in self.urls:
+            # If `url` is an empty string, skip it.
+            if not url.strip():
+                continue
+
+            # Sanitize url.
+            url = sanitize_url(url)
+
+            self.browser.get(url)
+            self.waiting_loading_page(is_reader_page=False)
+            try:
+                page_count = self.__get_page_count(self.browser.page_source)
+            except ValueError:
+                self.add_failed(url)
+                continue
+
+            manga_name = url.split("/")[-1]
+            manga_folder = os.sep.join([self.root_manga_dir, manga_name])
+            if not os.path.exists(manga_folder):
+                os.mkdir(manga_folder)
+
+            print(f'Downloading "{manga_name}" manga.')
+            delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
+
+            for page_num in tqdm(range(1, page_count + 1)):
+                destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
+                if os.path.isfile(destination_file):
+                    delay_before_fetching = True  # When skipping files, the reader will load multiple pages and slow down again
                     continue
 
-                # Sanitize url.
-                url = sanitize_url(url)
+                self.browser.get(f"{url}/read/page/{page_num}")
+                self.waiting_loading_page(
+                    is_reader_page=True, should_add_delay=delay_before_fetching
+                )
+                delay_before_fetching = False
 
-                self.browser.get(url)
-                self.waiting_loading_page(is_reader_page=False)
+                # Count of leyers may be 2 or 3 therefore we get different target layer
+                n = self.browser.execute_script(
+                    "return document.getElementsByClassName('layer').length"
+                )
                 try:
-                    page_count = self.__get_page_count(self.browser.page_source)
-                except ValueError:
-                    self.add_failed(url)
-                    continue
-
-                manga_name = url.split("/")[-1]
-                manga_folder = os.sep.join([self.root_manga_dir, manga_name])
-                if not os.path.exists(manga_folder):
-                    os.mkdir(manga_folder)
-
-                print(f'Downloading "{manga_name}" manga.')
-                delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
-
-                for page_num in tqdm(range(1, page_count + 1)):
-                    destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
-                    if os.path.isfile(destination_file):
-                        delay_before_fetching = True  # When skipping files, the reader will load multiple pages and slow down again
-                        continue
-
-                    self.browser.get(f"{url}/read/page/{page_num}")
-                    self.waiting_loading_page(
-                        is_reader_page=True, should_add_delay=delay_before_fetching
+                    # Resizing window size for exactly manga page size
+                    width = self.browser.execute_script(
+                        f"return document.getElementsByTagName('canvas')[{n-2}].width"
                     )
-                    delay_before_fetching = False
-
-                    # Count of leyers may be 2 or 3 therefore we get different target layer
-                    n = self.browser.execute_script(
-                        "return document.getElementsByClassName('layer').length"
+                    height = self.browser.execute_script(
+                        f"return document.getElementsByTagName('canvas')[{n-2}].height"
                     )
-                    try:
-                        # Resizing window size for exactly manga page size
-                        width = self.browser.execute_script(
-                            f"return document.getElementsByTagName('canvas')[{n-2}].width"
-                        )
-                        height = self.browser.execute_script(
-                            f"return document.getElementsByTagName('canvas')[{n-2}].height"
-                        )
-                        if self.viewport:
-                            self.set_viewport_size(width, height)
-                        else: 
-                            self.browser.set_window_size(width, height)
+                    if self.viewport:
+                        self.set_viewport_size(width, height)
+                    else: 
+                        self.browser.set_window_size(width, height)
 
-                    except JavascriptException:
-                        print(
-                            "\nSome error with JS. Page source are note ready. You can try increase argument -t"
-                        )
-
-                    # Delete all UI and save page
-                    self.browser.execute_script(
-                        f"document.getElementsByClassName('layer')[{n-1}].remove()"
+                except JavascriptException:
+                    print(
+                        "\nSome error with JS. Page source are note ready. You can try increase argument -t"
                     )
+
+                # Delete all UI and save page
+                self.browser.execute_script(
+                    f"document.getElementsByClassName('layer')[{n-1}].remove()"
+                )
                 
-                    self.browser.save_screenshot(destination_file)
-                print(">> manga done!")
+                self.browser.save_screenshot(destination_file)
 
-                # Check every file page for size.
-                failed = False
-                for page_num in tqdm(range(1, page_count + 1)):
-                    destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
-                    img = Image.open(destination_file)
-                    if img.width < FAIL_THRESHOLD or img.height < FAIL_THRESHOLD:
-                        failed = True
-                    img.close()
-                if failed: 
-                    self.add_failed(url)
-                    urls_processed += 1
+            # Check every file page for size.
+            failed = False
+            for page_num in range(1, page_count + 1):
+                destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
+                img = Image.open(destination_file)
+                if img.width < FAIL_THRESHOLD or img.height < FAIL_THRESHOLD:
+                    failed = True
+                img.close()
+            if failed: 
+                self.add_failed(url)
+                self.remove_manga_folder(manga_folder, page_count)
+                # Reinit browser!
+                self.browser.close()
+                self.init_browser(headless=True)
+                continue
+
+            if self.pack:
+                zipname = os.sep.join([self.root_manga_dir , f"{manga_name}.cbz"])
+                with ZipFile(zipname, "w") as archive:
+                    for page_num in range(1, page_count + 1):
+                        file = os.sep.join([manga_folder, f"{page_num}.png"])
+                        archive.write(file, f"{page_num}.png", None, ZIP_STORED)
+                if os.path.exists(zipname):
                     self.remove_manga_folder(manga_folder, page_count)
-                    self.browser.close()
-                    self.init_browser(headless=True)
-                    continue
 
-                if self.pack:
-                    zipname = os.sep.join([self.root_manga_dir , f"{manga_name}.cbz"])
-                    with ZipFile(zipname, "w") as archive:
-                        for page_num in tqdm(range(1, page_count + 1)):
-                            file = os.sep.join([manga_folder, f"{page_num}.png"])
-                            archive.write(file, f"{page_num}.png", None, ZIP_STORED)
-                    if os.path.exists(zipname):
-                        self.remove_manga_folder(manga_folder, page_count)
-
-                done_file_obj.write(f"{url}\n")
-                urls_processed += 1
-                if self.max is not None and urls_processed >= self.max:
-                    break
+            self.add_done(url)
+            urls_processed += 1
+            if self.max is not None and urls_processed >= self.max:
+                break
 
     def remove_manga_folder(self, manga_folder: str, page_count: int):
-        for page_num in tqdm(range(1, page_count + 1)):
+        for page_num in range(1, page_count + 1):
             file = os.sep.join([manga_folder, f"{page_num}.png"])
             if os.path.exists(file):
                 os.remove(file)
         os.rmdir(manga_folder)
+
+    def add_done(self, url: str):
+        print(f"Manga done! \[T]/")
+        file_obj = open(self.done_file, "a")
+        file_obj.write(f"{url}\n")
+        file_obj.close()
 
     def add_failed(self, url: str):
         print(f"\nError: Failing {url}")
@@ -378,7 +384,7 @@ class FDownloader:
         return: int
             Number of manga pages
         """
-        print(type(page_source))
+        # print(type(page_source))
         match = re.search(r"\"\>(\d+) page(s?)\<\/div\>", page_source)
         if match:
             return int(match.group(1))
@@ -411,28 +417,29 @@ class FDownloader:
             print(ex)
         return page_count
 
-    def __get_urls_list(self, urls_file: str, done_file: str) -> List[str]:
+    def __get_urls_list(self) -> List[str]:
         """
         Get list of urls from .txt file
         --------------------------
-        param: urls_file -- string
-            Name or path of .txt file with manga urls
-        param: done_file -- string
-            Name or path of .txt file with successfully downloaded manga urls
         return: urls -- list
             List of urls from urls_file
         """
         done = []
-        with open(done_file, "r") as donef:
+        with open(self.done_file, "r") as donef:
             for line in donef:
                 done.append(line.replace("\n", ""))
+                
+        failed = []
+        with open(self.fail_file, "r") as failf:
+            for line in failf:
+                failed.append(line.replace("\n", ""))
 
         urls = []
-        with open(urls_file, "r") as f:
+        with open(self.urls_file, "r") as f:
             for line in f:
                 clean_line = line.replace("\n", "")
                 clean_line = sanitize_url(clean_line)
-                if clean_line not in done:
+                if clean_line not in done and clean_line not in failed:
                     urls.append(clean_line)
         return urls
 

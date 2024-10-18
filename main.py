@@ -14,11 +14,20 @@ from downloader import (
     COOKIES_FILE,
     ROOT_MANGA_DIR,
     MAX,
+    EXEC_PATH,
 )
 
 
 def main():
     argparser = argparse.ArgumentParser()
+    argparser.add_argument(
+        "-b",
+        "--binary",
+        type=str,
+        default=EXEC_PATH,
+        help=f"Binary with chromedriver \
+            By default -- {EXEC_PATH}",
+    )
     argparser.add_argument(
         "-z",
         "--collection_url",
@@ -135,6 +144,7 @@ def main():
         Path(args.done_file).touch()
 
     loader = FDownloader(
+        driver_path=args.binary,
         urls_file=args.file_urls,
         done_file=args.done_file,
         fail_file=args.fail_file,
