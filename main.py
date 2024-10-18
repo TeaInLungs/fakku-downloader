@@ -166,7 +166,7 @@ def main():
         )
         loader.init_browser(headless=False)
     else:
-        print(f"Using cookies file: {args.cookies_file}")
+        # print(f"Using cookies file: {args.cookies_file}")
         loader.init_browser(headless=True)
 
     if args.collection_url:

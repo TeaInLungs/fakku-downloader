@@ -268,7 +268,10 @@ class FDownloader:
             print(f'Downloading "{manga_name}" manga.')
             delay_before_fetching = True  # When fetching the first page, multiple pages load and the reader slows down
 
-            for page_num in tqdm(range(1, page_count + 1)):
+        
+            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n}/{total}"
+            ascii=" >>>-" # Bro wtf? Is it that hard to have |==> | ?
+            for page_num in tqdm(range(1, page_count + 1), ascii=False, bar_format=bar_format):
                 destination_file = os.sep.join([manga_folder, f"{page_num}.png"])
                 if os.path.isfile(destination_file):
                     delay_before_fetching = True  # When skipping files, the reader will load multiple pages and slow down again
@@ -347,13 +350,13 @@ class FDownloader:
         os.rmdir(manga_folder)
 
     def add_done(self, url: str):
-        print(f"Manga done! \[T]/")
+        # print(f"Manga done! \[T]/")
         file_obj = open(self.done_file, "a")
         file_obj.write(f"{url}\n")
         file_obj.close()
 
     def add_failed(self, url: str):
-        print(f"\nError: Failing {url}")
+        print(f"Error: Failed {url}")
         fail_file_obj = open(self.fail_file, "a")
         fail_file_obj.write(f"{url}\n")
         fail_file_obj.close()
