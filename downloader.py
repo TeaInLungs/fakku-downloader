@@ -442,7 +442,7 @@ class FDownloader:
             for line in f:
                 clean_line = line.replace("\n", "")
                 clean_line = sanitize_url(clean_line)
-                if clean_line not in done and clean_line not in failed:
+                if clean_line not in done and clean_line not in failed and clean_line not in urls:
                     urls.append(clean_line)
         return urls
 
